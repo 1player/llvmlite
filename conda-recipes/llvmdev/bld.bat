@@ -3,6 +3,8 @@ FOR /D %%d IN (llvm-*.src) DO (MKLINK /J llvm %%d
 if !errorlevel! neq 0 exit /b %errorlevel%)
 FOR /D %%d IN (lld-*.src) DO (MKLINK /J lld %%d
 if !errorlevel! neq 0 exit /b %errorlevel%)
+FOR /D %%d IN (rt\compiler-rt-*.src) DO (MKLINK /J compiler-rt %%d
+if !errorlevel! neq 0 exit /b %errorlevel%)
 FOR /D %%d IN (unwind\libunwind-*.src) DO (MKLINK /J libunwind %%d
 if !errorlevel! neq 0 exit /b %errorlevel%)
 
@@ -93,3 +95,48 @@ REM enhanced unix-like shell which has functions like `grep` available.
 REM cd ..\test
 REM "%PYTHON%" "..\build\%BUILD_CONFIG%\bin\llvm-lit.py" -vv Transforms ExecutionEngine Analysis CodeGen/X86
 REM if errorlevel 1 exit 1
+
+
+REM Build compiler-rt separately, because it fails on Windows with LLVM 14.0.6
+REM if built as an LLVM project.
+REM See also: https://stackoverflow.com/questions/46108390/building-llvm-with-cmake-and-visual-stuidio-fails-to-install
+
+cd "%SRC_DIR%\compiler-rt"
+mkdir build
+cd build
+
+set CMAKE_CUSTOM=-DCOMPILER_RT_BUILD_BUILTINS:BOOL=ON ^
+    -DCOMPILER_RT_BUILD_LIBFUZZER:BOOL=OFF ^
+    -DCOMPILER_RT_BUILD_CRT:BOOL=OFF ^
+    -DCOMPILER_RT_BUILD_MEMPROF:BOOL=OFF ^
+    -DCOMPILER_RT_BUILD_PROFILE:BOOL=OFF ^
+    -DCOMPILER_RT_BUILD_SANITIZERS:BOOL=OFF ^
+    -DCOMPILER_RT_BUILD_XRAY:BOOL=OFF ^
+    -DCOMPILER_RT_BUILD_GWP_ASAN:BOOL=OFF ^
+    -DCOMPILER_RT_BUILD_ORC:BOOL=OFF ^
+    -DCOMPILER_RT_INCLUDE_TESTS:BOOL=OFF ^
+    -DLLVM_CONFIG_PATH="%SRC_DIR%\build\%BUILD_CONFIG%\bin\llvm-config.exe"
+
+REM try all compatible visual studio toolsets to find one that is installed
+setlocal enabledelayedexpansion
+for /l %%n in (0,1,%MAX_INDEX_CMAKE_GENERATOR%) do (
+    cmake -G "!CMAKE_GENERATOR[%%n]!" ^
+          -A "!CMAKE_GENERATOR_ARCHITECTURE[%%n]!" ^
+          -T "!CMAKE_GENERATOR_TOOLSET[%%n]!" ^
+          -DCMAKE_BUILD_TYPE="%BUILD_CONFIG%" ^
+          -DCMAKE_PREFIX_PATH="%LIBRARY_PREFIX%" ^
+          -DCMAKE_INSTALL_PREFIX:PATH="%LIBRARY_PREFIX%" ^
+          %CMAKE_CUSTOM% ..
+    if not errorlevel 1 goto crt_configuration_successful
+    del CMakeCache.txt
+)
+if errorlevel 1 exit 1
+
+:crt_configuration_successful
+endlocal
+
+cmake --build . --config "%BUILD_CONFIG%"
+if errorlevel 1 exit 1
+
+cmake --build . --config "%BUILD_CONFIG%" --target install
+if errorlevel 1 exit 1

@@ -36,13 +36,16 @@ REM the 64bit linker anyway. This must be passed in to certain generators as
 REM '-Thost x64'.
 set PreferredToolArchitecture=x64
 
-set MAX_INDEX_CMAKE_GENERATOR=0
+set MAX_INDEX_CMAKE_GENERATOR=1
 
 set "CMAKE_GENERATOR[0]=Visual Studio 16 2019"
+set "CMAKE_GENERATOR[1]=Visual Studio 17 2022"
 
 set "CMAKE_GENERATOR_ARCHITECTURE[0]=%GEN_ARCH%"
+set "CMAKE_GENERATOR_ARCHITECTURE[1]=%GEN_ARCH%"
 
 set "CMAKE_GENERATOR_TOOLSET[0]=v142"
+set "CMAKE_GENERATOR_TOOLSET[1]=v142"
 
 REM Reduce build times and package size by removing unused stuff
 REM BENCHMARKS (new for llvm8) don't build under Visual Studio 14 2015
